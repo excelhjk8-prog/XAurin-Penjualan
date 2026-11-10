@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UsahaKu - Perhitungan HPP & Penjualan Anti-Crash</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        [v-cloak] { display: none !important; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col md:flex-row" id="app" v-cloak>
+
+    <!-- SIDEBAR DESKTOP -->
+    <aside class="no-print hidden md:flex flex-col w-64 bg-slate-900 text-white min-h-screen sticky top-0 shadow-xl z-20">
+        <div class="p-5 border-b border-slate-800 flex items-center space-x-3">
+            <div class="bg-indigo-600 p-2.5 rounded-xl text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <i class="fa-solid fa-calculator text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight tracking-wide">UsahaKu</h1>
+                <p class="text-xs text-indigo-400 font-medium">POS & Pricing Manager</p>
+            </div>
+        </div>
+
+        <nav class="flex-1 p-4 space-y-1.5">
+            <button @click="currentTab = 'dashboard'" :class="navClass('dashboard')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all">
+                <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+                <span>Dashboard</span>
+            </button>
+            <button @click="currentTab = 'calculator'" :class="navClass('calculator')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all">
+                <i class="fa-solid fa-calculator w-5 text-center"></i>
+                <span>Kalkulator Batch & Yield</span>
+            </button>
+            <button @click="currentTab = 'products'" :class="navClass('products')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all">
+                <i class="fa-solid fa-boxes-stacked w-5 text-center"></i>
+                <span class="flex-1 text-left">Katalog Produk</span>
+                <span v-if="products.length" class="bg-slate-800 text-slate-300 text-xs px-2 py-0.5 rounded-full font-semibold">{{ products.length }}</span>
+            </button>
+            <button @click="currentTab = 'pos'" :class="navClass('pos')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all">
+                <i class="fa-solid fa-cash-register w-5 text-center"></i>
+                <span>Kasir (POS)</span>
+            </button>
+            <button @click="currentTab = 'history'" :class="navClass('history')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all">
+                <i class="fa-solid fa-receipt w-5 text-center"></i>
+                <span>Riwayat Penjualan</span>
+            </button>
+        </nav>
+
+        <!-- Quick Summary Box in Sidebar -->
+        <div class="p-4 m-4 bg-slate-800/60 border border-slate-700/50 rounded-2xl">
+            <div class="text-xs text-slate-400 font-medium mb-1">Total Omset Hari Ini</div>
+            <div class="text-lg font-bold text-emerald-400">{{ formatRp(todaySales) }}</div>
+            <div class="text-xs text-slate-400 mt-2 flex justify-between">
+                <span>Profit Hari Ini:</span>
+                <span class="text-indigo-300 font-semibold">{{ formatRp(todayProfit) }}</span>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-800 text-xs text-slate-500 text-center">
+            v1.3 &bull; Anti-Crash Protected
+        </div>
+    </aside>
+
+    <!-- MOBILE NAVBAR -->
+    <header class="no-print md:hidden bg-slate-900 text-white p-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
+        <div class="flex items-center space-x-3">
+            <div class="bg-indigo-600 p-2 rounded-lg text-white">
+                <i class="fa-solid fa-calculator text-lg"></i>
+            </div>
+            <span class="font-bold text-lg">UsahaKu</span>
+        </div>
+        <button @click="mobileMenuOpen = !mobileMenuOpen" class="text-slate-300 hover:text-white p-2 focus:outline-none">
+            <i class="fa-solid" :class="mobileMenuOpen ? 'fa-xmark text-xl' : 'fa-bars text-xl'"></i>
+        </button>
+    </header>
+
+    <!-- MOBILE MENU DRAWER -->
+    <div v-if="mobileMenuOpen" class="no-print md:hidden bg-slate-900 text-white border-b border-slate-800 p-4 space-y-2 sticky top-[60px] z-20">
+        <button @click="selectTabMobile('dashboard')" :class="navClass('dashboard')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium">
+            <i class="fa-solid fa-chart-pie w-5"></i>
+            <span>Dashboard</span>
+        </button>
+        <button @click="selectTabMobile('calculator')" :class="navClass('calculator')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium">
+            <i class="fa-solid fa-calculator w-5"></i>
+            <span>Kalkulator Batch & Yield</span>
+        </button>
+        <button @click="selectTabMobile('products')" :class="navClass('products')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium">
+            <i class="fa-solid fa-boxes-stacked w-5"></i>
+            <span>Katalog Produk</span>
+        </button>
+        <button @click="selectTabMobile('pos')" :class="navClass('pos')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium">
+            <i class="fa-solid fa-cash-register w-5"></i>
+            <span>Kasir (POS)</span>
+        </button>
+        <button @click="selectTabMobile('history')" :class="navClass('history')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium">
+            <i class="fa-solid fa-receipt w-5"></i>
+            <span>Riwayat Penjualan</span>
+        </button>
+    </div>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
+
+        <!-- ==================== TAB 1: DASHBOARD ==================== -->
+        <section v-if="currentTab === 'dashboard'" class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Ringkasan Bisnis</h2>
+                    <p class="text-slate-500 text-sm mt-0.5">Pantau pendapatan, modal terpakai, dan keuntungan bersih usaha Anda.</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <select v-model="dashboardFilter" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-xl px-3 py-2 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <option value="today">Hari Ini</option>
+                        <option value="7days">7 Hari Terakhir</option>
+                        <option value="30days">30 Hari Terakhir</option>
+                        <option value="all">Semua Waktu</option>
+                    </select>
+                    <button @click="exportDataJSON" title="Backup Data JSON" class="p-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                    <button @click="resetData" title="Reset Data Aplikasi" class="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STAT CARDS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Total Omset -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-start justify-between">
+                    <div>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Omset</span>
+                        <h3 class="text-2xl font-bold text-slate-900 mt-1">{{ formatRp(filteredStats.totalSales) }}</h3>
+                        <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-arrow-trend-up text-emerald-500 mr-1"></i> Penjualan kotor</p>
+                    </div>
+                    <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                        <i class="fa-solid fa-wallet text-xl"></i>
+                    </div>
+                </div>
+
+                <!-- Total HPP / Modal -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-start justify-between">
+                    <div>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Modal Terpakai (HPP)</span>
+                        <h3 class="text-2xl font-bold text-slate-900 mt-1">{{ formatRp(filteredStats.totalHpp) }}</h3>
+                        <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-box text-amber-500 mr-1"></i> HPP barang terjual</p>
+                    </div>
+                    <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                        <i class="fa-solid fa-coins text-xl"></i>
+                    </div>
+                </div>
+
+                <!-- Profit Bersih -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-start justify-between">
+                    <div>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Keuntungan Bersih</span>
+                        <h3 class="text-2xl font-bold text-indigo-600 mt-1">{{ formatRp(filteredStats.totalProfit) }}</h3>
+                        <p class="text-xs text-slate-500 mt-1">Margin Rata-rata: <span class="font-bold text-indigo-600">{{ filteredStats.avgMargin }}%</span></p>
+                    </div>
+                    <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                        <i class="fa-solid fa-chart-line text-xl"></i>
+                    </div>
+                </div>
+
+                <!-- Total Transaksi -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-start justify-between">
+                    <div>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Transaksi</span>
+                        <h3 class="text-2xl font-bold text-slate-900 mt-1">{{ filteredStats.count }}</h3>
+                        <p class="text-xs text-slate-500 mt-1">{{ filteredStats.totalItemsSold }} item produk terjual</p>
+                    </div>
+                    <div class="p-3 bg-sky-50 text-sky-600 rounded-xl">
+                        <i class="fa-solid fa-receipt text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CHARTS SECTION -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Sales & Profit Line Chart -->
+                <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-chart-column text-indigo-600"></i> Tren Omset & Keuntungan
+                        </h3>
+                    </div>
+                    <div class="relative flex-1 min-h-[280px]">
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Top Products Doughnut Chart -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col">
+                    <h3 class="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-fire text-amber-500"></i> Produk Terlaris
+                    </h3>
+                    <div class="relative flex-1 min-h-[220px] flex items-center justify-center">
+                        <canvas id="productsChart" v-show="topProductsData.labels.length > 0"></canvas>
+                        <p v-if="topProductsData.labels.length === 0" class="text-slate-400 text-sm text-center italic py-8">Belum ada transaksi penjualan recorded.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ALERT STOK MENIPIS & PENJUALAN TERAKHIR -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Low Stock Warning -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-500"></i> Peringatan Stok Menipis (&le; 5)
+                        </h3>
+                        <button @click="currentTab = 'products'" class="text-xs text-indigo-600 font-semibold hover:underline">Lihat Semua</button>
+                    </div>
+                    <div v-if="lowStockProducts.length === 0" class="text-slate-400 text-sm py-4 text-center italic">
+                        Semua stok produk aman 👍
+                    </div>
+                    <div v-else class="space-y-3">
+                        <div v-for="p in lowStockProducts" :key="p.id" class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <div>
+                                <h4 class="font-semibold text-sm text-slate-800">{{ p.name }}</h4>
+                                <p class="text-xs text-slate-500">Harga: {{ formatRp(p.sellingPrice) }}</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-100 text-amber-700">Sisa: {{ p.stock }}</span>
+                                <button @click="openEditProductModal(p)" class="text-slate-400 hover:text-indigo-600 text-xs font-medium">Tambah Stok</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Panduan Cepat -->
+                <div class="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-sm flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-indigo-300">Tips Penggunaan UsahaKu</span>
+                        <h4 class="text-lg font-bold mt-1">Kelola Usaha Lebih Aman & Presisi</h4>
+                        <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+                            Gunakan menu <strong>Kalkulator Batch & Yield</strong> untuk menghitung modal bahan baku awal per resep/adonan dan menentukan harga jual aman. Seluruh data transaksi otomatis tersimpan di penyimpanan lokal browser Anda.
+                        </p>
+                    </div>
+                    <div class="pt-4 flex gap-2">
+                        <button @click="currentTab = 'calculator'" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-bold rounded-xl transition">Buka Kalkulator</button>
+                        <button @click="currentTab = 'pos'" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-xs font-bold rounded-xl transition">Buka Kasir</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 2: KALKULATOR HPP & MARGIN BERBASIS BATCH & YIELD ==================== -->
+        <section v-if="currentTab === 'calculator'" class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Kalkulator HPP & Profit Berbasis Batch (Yield)</h2>
+                    <p class="text-slate-500 text-sm mt-1">Hitung modal bahan baku per adonan/batch, jumlah produk jadi yang dihasilkan, dan simulasikan keuntungan hingga 100 unit.</p>
+                </div>
+                <button @click="resetCalc" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2.5 rounded-xl transition text-sm flex items-center space-x-2">
+                    <i class="fa-solid fa-rotate-left text-indigo-600"></i>
+                    <span>Reset Kalkulator</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- FORM INPUT BATCH & YIELD -->
+                <div class="lg:col-span-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-5">
+                    <h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-flask text-indigo-600"></i> Rincian Batch & Hasil Jadi (Yield)
+                    </h3>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Nama Produk / Batch Resep</label>
+                        <input type="text" v-model="calc.name" placeholder="Contoh: Donat Mesis (Batch 50 Pcs)" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium">
+                    </div>
+
+                    <!-- Input Multiple Bahan Baku Dinamis -->
+                    <div class="space-y-3 bg-slate-50/80 p-4 rounded-xl border border-slate-200">
+                        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                            <label class="text-xs font-bold uppercase text-indigo-900 flex items-center gap-1.5">
+                                <i class="fa-solid fa-boxes-packing text-indigo-600"></i> Rincian Bahan Baku per Batch
+                            </label>
+                            <button @click="addIngredient" type="button" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1 shadow-sm">
+                                <i class="fa-solid fa-plus text-[10px]"></i>
+                                <span>Tambah Bahan</span>
+                            </button>
+                        </div>
+
+                        <!-- Header Baris Bahan -->
+                        <div class="grid grid-cols-12 gap-2 text-[11px] font-bold text-slate-500 uppercase px-1">
+                            <span class="col-span-5">Nama Bahan Baku</span>
+                            <span class="col-span-3">Qty / Satuan</span>
+                            <span class="col-span-3 text-right">Biaya (Rp)</span>
+                            <span class="col-span-1 text-center">Aksi</span>
+                        </div>
+
+                        <!-- Daftar Baris Bahan Baku -->
+                        <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                            <div v-for="(item, idx) in calc.ingredients" :key="item.id || idx" class="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                                <div class="col-span-5">
+                                    <input type="text" v-model="item.name" placeholder="mis: Tepung Terigu" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 focus:ring-1 focus:ring-indigo-500 outline-none">
+                                </div>
+                                <div class="col-span-3">
+                                    <input type="text" v-model="item.qty" placeholder="mis: 1 kg / 500gr" class="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-300 focus:ring-1 focus:ring-indigo-500 outline-none">
+                                </div>
+                                <div class="col-span-3">
+                                    <input type="number" v-model.number="item.cost" min="0" placeholder="0" class="w-full px-2 py-1.5 text-xs font-semibold text-right rounded-lg border border-slate-300 focus:ring-1 focus:ring-indigo-500 outline-none">
+                                </div>
+                                <div class="col-span-1 text-center">
+                                    <button @click="removeIngredient(idx)" type="button" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition" title="Hapus Bahan">
+                                        <i class="fa-solid fa-trash-can text-xs"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ringkasan Akumulasi Total Bahan Baku -->
+                        <div class="bg-indigo-50 p-3 rounded-xl border border-indigo-100 flex justify-between items-center text-xs">
+                            <span class="font-bold text-indigo-950">Total Modal Bahan Baku (Akumulasi):</span>
+                            <span class="font-extrabold text-indigo-700 text-sm">{{ formatRp(totalMaterialCost) }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Input Yield & Biaya Tambahan -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="sm:col-span-2 bg-emerald-50/70 p-4 rounded-xl border border-emerald-100">
+                            <label class="block text-xs font-bold uppercase text-emerald-900 mb-1">
+                                <i class="fa-solid fa-cubes text-emerald-600 mr-1"></i> Total Jumlah Bahan Jadi / Yield (Unit/Pcs) *
+                            </label>
+                            <input type="number" v-model.number="calc.yieldQty" min="1" placeholder="1" class="w-full px-4 py-2.5 rounded-xl border border-emerald-200 focus:ring-2 focus:ring-emerald-500 outline-none text-base font-extrabold text-emerald-950 bg-white">
+                            <span class="text-[11px] text-emerald-700 mt-1 block">Berapa porsi/pcs/unit produk yang berhasil dibuat dari 1 batch ini.</span>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">
+                                <i class="fa-solid fa-box text-amber-500 mr-1"></i> Total Kemasan Batch (Rp)
+                            </label>
+                            <input type="number" v-model.number="calc.batchPackaging" min="0" placeholder="0" class="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold">
+                            <span class="text-[11px] text-slate-400">Plastik, box, stiker per batch</span>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">
+                                <i class="fa-solid fa-bolt text-sky-500 mr-1"></i> Operasional Batch (Rp)
+                            </label>
+                            <input type="number" v-model.number="calc.batchOperational" min="0" placeholder="0" class="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold">
+                            <span class="text-[11px] text-slate-400">Gas, listrik, tenaga per batch</span>
+                        </div>
+                    </div>
+
+                    <!-- Mode Selection: Target Margin vs Markup -->
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-bold uppercase text-slate-700">Target Keuntungan per Unit</label>
+                            <div class="inline-flex rounded-lg p-0.5 bg-slate-200 text-xs">
+                                <button @click="calc.mode = 'margin'" :class="calc.mode === 'margin' ? 'bg-indigo-600 text-white font-bold shadow' : 'text-slate-600 hover:text-slate-900'" class="px-3 py-1 rounded-md transition">
+                                    Margin (%)
+                                </button>
+                                <button @click="calc.mode = 'markup'" :class="calc.mode === 'markup' ? 'bg-indigo-600 text-white font-bold shadow' : 'text-slate-600 hover:text-slate-900'" class="px-3 py-1 rounded-md transition">
+                                    Markup (%)
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-3">
+                            <div class="flex-1">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-xs text-slate-600 font-medium">Target {{ calc.mode === 'margin' ? 'Margin dari Omset' : 'Markup dari HPP' }}:</span>
+                                    <span class="text-sm font-bold text-indigo-600">{{ calc.targetPercent }}%</span>
+                                </div>
+                                <input type="range" v-model.number="calc.targetPercent" min="1" max="90" class="w-full accent-indigo-600 cursor-pointer">
+                            </div>
+                            <input type="number" v-model.number="calc.targetPercent" min="1" max="95" class="w-20 px-3 py-1.5 rounded-lg border border-slate-300 text-center font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Custom Price Override -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs font-semibold text-slate-600">Harga Jual Final Manual per Unit (Opsional)</label>
+                            <button v-if="calc.manualPrice !== null" @click="calc.manualPrice = null" class="text-[11px] text-indigo-600 hover:underline">Gunakan Rekomendasi Otomatis</button>
+                        </div>
+                        <input type="number" v-model.number="calc.manualPrice" :placeholder="formatRp(calcResults.recommendedPrice)" class="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold">
+                    </div>
+                </div>
+
+                <!-- HASIL KALKULASI & SUMMARY CARD -->
+                <div class="lg:col-span-6 flex flex-col justify-between bg-gradient-to-br from-slate-900 to-indigo-950 text-white p-6 rounded-2xl shadow-xl space-y-6">
+                    <div>
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-indigo-300">Hasil Kalkulasi Unit & Batch</span>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Yield: {{ calc.yieldQty || 1 }} Pcs</span>
+                        </div>
+
+                        <div class="mt-6 space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-white/5 p-3 rounded-xl border border-white/10">
+                                    <span class="text-xs text-slate-400 block">Total Biaya Batch:</span>
+                                    <span class="text-lg font-bold text-slate-200">{{ formatRp(calcResults.totalBatchCost) }}</span>
+                                </div>
+                                <div class="bg-white/5 p-3 rounded-xl border border-white/10">
+                                    <span class="text-xs text-indigo-300 block">HPP / Modal per Unit:</span>
+                                    <span class="text-lg font-bold text-indigo-300">{{ formatRp(calcResults.hppPerUnit) }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Recommended Price -->
+                            <div class="bg-indigo-900/40 p-4 rounded-xl border border-indigo-500/30">
+                                <span class="text-xs text-indigo-300 uppercase font-bold tracking-wider">Rekomendasi Harga Jual / Unit:</span>
+                                <div class="text-3xl font-extrabold text-emerald-400 mt-1">
+                                    {{ formatRp(calcResults.finalPrice) }}
+                                </div>
+                                <div class="text-xs text-slate-400 mt-1 flex justify-between">
+                                    <span>Profit Bersih / Unit: <strong class="text-emerald-400">+{{ formatRp(calcResults.profitPerUnit) }}</strong></span>
+                                    <span>Margin Efektif: <strong class="text-indigo-300">{{ calcResults.effectiveMargin }}%</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Profit Batch Total -->
+                            <div class="bg-emerald-950/40 p-4 rounded-xl border border-emerald-500/30">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <span class="text-xs text-emerald-300 uppercase font-semibold">Estimasi Profit 1 Batch ({{ calc.yieldQty || 1 }} unit):</span>
+                                        <div class="text-xl font-bold text-emerald-400 mt-0.5">{{ formatRp(calcResults.profitPerUnit * safeNum(calc.yieldQty, 1)) }}</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-xs text-slate-400 block">Total Omset 1 Batch:</span>
+                                        <span class="text-sm font-bold text-slate-200">{{ formatRp(calcResults.finalPrice * safeNum(calc.yieldQty, 1)) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Direct Action: Save to Catalog -->
+                    <div class="space-y-3 pt-4 border-t border-slate-800">
+                        <button @click="saveCalculatorToCatalog" class="w-full bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white font-bold py-3.5 px-4 rounded-xl transition shadow-lg shadow-emerald-500/30 flex items-center justify-center space-x-2 text-base">
+                            <i class="fa-solid fa-plus-circle"></i>
+                            <span>Simpan Ke Katalog Produk (Stok: {{ calc.yieldQty || 1 }} Unit)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PROYEKSI & SIMULASI PROFIT (1 S/D 100 UNIT) -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-indigo-600"></i> Tabel Proyeksi & Simulasi Profit Penjualan (1 s/d 100 Unit)
+                        </h3>
+                        <p class="text-slate-500 text-xs">Simulasi pendapatan dan keuntungan bersih berdasarkan jumlah unit produk terjual.</p>
+                    </div>
+                    <span class="text-xs font-semibold px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg">Harga Jual: {{ formatRp(calcResults.finalPrice) }} / unit</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                                <th class="p-3 text-center">Jumlah Penjualan (Qty)</th>
+                                <th class="p-3 text-right">Total Omset (Penjualan)</th>
+                                <th class="p-3 text-right">Total HPP (Modal)</th>
+                                <th class="p-3 text-right">Keuntungan Bersih (Profit)</th>
+                                <th class="p-3 text-center">Margin Efektif</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="sim in profitProjections" :key="sim.qty" :class="sim.qty === calc.yieldQty ? 'bg-emerald-50/70 font-semibold' : 'hover:bg-slate-50'">
+                                <td class="p-3 text-center">
+                                    <span class="font-bold text-slate-800">{{ sim.qty }} Unit</span>
+                                    <span v-if="sim.qty === calc.yieldQty" class="ml-2 text-[10px] px-2 py-0.5 bg-emerald-600 text-white rounded-full font-bold">1 Batch Yield</span>
+                                </td>
+                                <td class="p-3 text-right font-medium text-slate-900">{{ formatRp(sim.omset) }}</td>
+                                <td class="p-3 text-right text-slate-500">{{ formatRp(sim.hpp) }}</td>
+                                <td class="p-3 text-right font-bold text-emerald-600">+{{ formatRp(sim.profit) }}</td>
+                                <td class="p-3 text-center font-medium text-indigo-600">{{ sim.margin }}%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 3: KATALOG PRODUK & STOK ==================== -->
+        <section v-if="currentTab === 'products'" class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Katalog Produk & Manajemen Stok</h2>
+                    <p class="text-slate-500 text-sm mt-0.5">Kelola daftar produk, modal HPP, harga jual, dan jumlah stok barang.</p>
+                </div>
+                <button @click="openAddProductModal" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow-md transition flex items-center space-x-2 text-sm">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Tambah Produk Baru</span>
+                </button>
+            </div>
+
+            <!-- SEARCH & FILTER BAR -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400"></i>
+                    <input type="text" v-model="productSearch" placeholder="Cari nama produk atau SKU..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div class="flex items-center gap-2">
+                    <select v-model="productCategoryFilter" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-xl px-3 py-2 outline-none font-medium">
+                        <option value="">Semua Kategori</option>
+                        <option v-for="cat in productCategories" :key="cat" :value="cat">{{ cat }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- PRODUCT TABLE / CARDS -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                                <th class="p-4">Produk</th>
+                                <th class="p-4">Kategori</th>
+                                <th class="p-4 text-right">Modal (HPP)</th>
+                                <th class="p-4 text-right">Harga Jual</th>
+                                <th class="p-4 text-right">Profit / Unit</th>
+                                <th class="p-4 text-center">Stok</th>
+                                <th class="p-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm">
+                            <tr v-if="filteredProducts.length === 0">
+                                <td colspan="7" class="p-8 text-center text-slate-400 italic">
+                                    Tidak ada produk yang ditemukan.
+                                </td>
+                            </tr>
+                            <tr v-for="p in filteredProducts" :key="p.id" class="hover:bg-slate-50/80 transition">
+                                <td class="p-4 font-semibold text-slate-800">
+                                    <div>{{ p.name }}</div>
+                                    <span v-if="p.sku" class="text-[11px] text-slate-400 font-mono">SKU: {{ p.sku }}</span>
+                                </td>
+                                <td class="p-4 text-slate-600">
+                                    <span class="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700">{{ p.category || 'Umum' }}</span>
+                                </td>
+                                <td class="p-4 text-right font-medium text-slate-600">{{ formatRp(p.costPrice) }}</td>
+                                <td class="p-4 text-right font-bold text-slate-900">{{ formatRp(p.sellingPrice) }}</td>
+                                <td class="p-4 text-right font-semibold text-emerald-600">
+                                    +{{ formatRp(p.sellingPrice - p.costPrice) }}
+                                    <div class="text-[10px] text-indigo-500 font-normal">({{ getMarginPercent(p) }}% margin)</div>
+                                </td>
+                                <td class="p-4 text-center">
+                                    <span :class="p.stock <= 5 ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800'" class="px-3 py-1 rounded-full text-xs font-bold">
+                                        {{ p.stock }}
+                                    </span>
+                                </td>
+                                <td class="p-4 text-center">
+                                    <div class="flex items-center justify-center space-x-2">
+                                        <button @click="openEditProductModal(p)" title="Edit Produk" class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                        </button>
+                                        <button @click="deleteProduct(p.id)" title="Hapus Produk" class="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 4: KASIR (POS) ==================== -->
+        <section v-if="currentTab === 'pos'" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <!-- PRODUCT SELECTION GRID (7 COLS) -->
+                <div class="lg:col-span-7 space-y-4">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row gap-3">
+                        <div class="relative flex-1">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400"></i>
+                            <input type="text" v-model="posSearch" placeholder="Cari item di kasir..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <select v-model="posCategory" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-xl px-3 py-2 outline-none">
+                            <option value="">Semua Kategori</option>
+                            <option v-for="cat in productCategories" :key="cat" :value="cat">{{ cat }}</option>
+                        </select>
+                    </div>
+
+                    <!-- Grid Items -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div v-for="p in posProducts" :key="p.id" 
+                            @click="addToCart(p)"
+                            :class="p.stock <= 0 ? 'opacity-50 pointer-events-none' : 'hover:border-indigo-500 hover:shadow-md cursor-pointer'"
+                            class="bg-white p-4 rounded-2xl border border-slate-200/80 transition flex flex-col justify-between h-36 relative overflow-hidden group">
+                            
+                            <div class="flex justify-between items-start">
+                                <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">{{ p.category || 'Umum' }}</span>
+                                <span :class="p.stock <= 5 ? 'text-amber-600 font-bold' : 'text-slate-400'" class="text-xs">Stok: {{ p.stock }}</span>
+                            </div>
+
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-sm line-clamp-2 group-hover:text-indigo-600 transition">{{ p.name }}</h4>
+                                <div class="text-indigo-600 font-extrabold text-base mt-1">{{ formatRp(p.sellingPrice) }}</div>
+                            </div>
+
+                            <div v-if="p.stock <= 0" class="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] flex items-center justify-center text-white font-bold text-xs uppercase">
+                                Stok Habis
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CART & PAYMENT PANEL (5 COLS) -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-5 sticky top-6">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-cart-shopping text-indigo-600"></i> Keranjang Belanja
+                        </h3>
+                        <button v-if="cart.length > 0" @click="clearCart" class="text-xs text-rose-600 hover:underline font-medium">Kosongkan</button>
+                    </div>
+
+                    <!-- Cart List -->
+                    <div class="max-h-60 overflow-y-auto divide-y divide-slate-100 pr-1">
+                        <div v-if="cart.length === 0" class="py-8 text-center text-slate-400 text-sm italic">
+                            Belum ada item dipilih. Klik produk di samping untuk memasukkan ke keranjang.
+                        </div>
+                        <div v-for="item in cart" :key="item.id" class="py-3 flex items-center justify-between">
+                            <div class="flex-1 pr-2">
+                                <div class="font-semibold text-slate-800 text-sm">{{ item.name }}</div>
+                                <div class="text-xs text-slate-500">{{ formatRp(item.sellingPrice) }} x {{ item.qty }}</div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button @click="updateCartQty(item, -1)" class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 font-bold flex items-center justify-center hover:bg-slate-200">-</button>
+                                <span class="text-sm font-bold w-6 text-center">{{ item.qty }}</span>
+                                <button @click="updateCartQty(item, 1)" class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 font-bold flex items-center justify-center hover:bg-slate-200">+</button>
+                                <div class="w-20 text-right font-bold text-slate-900 text-sm">{{ formatRp(item.sellingPrice * item.qty) }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Calculations -->
+                    <div v-if="cart.length > 0" class="space-y-3 pt-3 border-t border-slate-100 bg-slate-50 p-4 rounded-xl">
+                        <div class="flex justify-between text-sm text-slate-600">
+                            <span>Subtotal:</span>
+                            <span class="font-semibold text-slate-800">{{ formatRp(cartSubtotal) }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm text-slate-600 items-center">
+                            <span>Diskon (Rp):</span>
+                            <input type="number" v-model.number="cartDiscount" min="0" class="w-28 px-2 py-1 rounded-lg border border-slate-300 text-right font-semibold text-sm outline-none focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                        <div class="flex justify-between text-base font-extrabold text-slate-900 pt-2 border-t border-slate-200">
+                            <span>Total Bayar:</span>
+                            <span class="text-indigo-600 text-xl">{{ formatRp(cartGrandTotal) }}</span>
+                        </div>
+
+                        <!-- Cash Payment Inputs -->
+                        <div class="pt-2 space-y-2">
+                            <label class="block text-xs font-semibold text-slate-600">Jumlah Uang Diterima (Rp):</label>
+                            <input type="number" v-model.number="cartPayment" min="0" placeholder="0" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none">
+                            
+                            <!-- Quick Money Buttons -->
+                            <div class="grid grid-cols-4 gap-1.5 pt-1">
+                                <button @click="cartPayment = cartGrandTotal" class="px-2 py-1 bg-white border border-slate-300 text-slate-700 text-xs rounded-lg font-semibold hover:bg-slate-100">Uang Pas</button>
+                                <button @click="cartPayment = 20000" class="px-2 py-1 bg-white border border-slate-300 text-slate-700 text-xs rounded-lg font-semibold hover:bg-slate-100">20rb</button>
+                                <button @click="cartPayment = 50000" class="px-2 py-1 bg-white border border-slate-300 text-slate-700 text-xs rounded-lg font-semibold hover:bg-slate-100">50rb</button>
+                                <button @click="cartPayment = 100000" class="px-2 py-1 bg-white border border-slate-300 text-slate-700 text-xs rounded-lg font-semibold hover:bg-slate-100">100rb</button>
+                            </div>
+
+                            <div v-if="cartPayment >= cartGrandTotal && cartPayment > 0" class="flex justify-between items-center text-sm pt-2 text-emerald-700 font-bold">
+                                <span>Kembalian:</span>
+                                <span>{{ formatRp(cartPayment - cartGrandTotal) }}</span>
+                            </div>
+                        </div>
+
+                        <button @click="checkout" :disabled="cartPayment < cartGrandTotal" 
+                            :class="cartPayment >= cartGrandTotal ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/30' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
+                            class="w-full font-bold py-3.5 px-4 rounded-xl transition text-base flex items-center justify-center space-x-2 mt-4">
+                            <i class="fa-solid fa-check-circle"></i>
+                            <span>Selesaikan Transaksi</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 5: RIWAYAT PENJUALAN ==================== -->
+        <section v-if="currentTab === 'history'" class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Riwayat Transaksi Penjualan</h2>
+                    <p class="text-slate-500 text-sm mt-0.5">Daftar semua transaksi kasir lengkap dengan profit dan struk belanja.</p>
+                </div>
+                <button @click="exportTransactionsCSV" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2.5 rounded-xl transition text-sm flex items-center space-x-2">
+                    <i class="fa-solid fa-file-csv text-emerald-600"></i>
+                    <span>Export CSV</span>
+                </button>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                                <th class="p-4">No. Struk</th>
+                                <th class="p-4">Tanggal & Waktu</th>
+                                <th class="p-4">Rincian Item</th>
+                                <th class="p-4 text-right">Total Omset</th>
+                                <th class="p-4 text-right">Total HPP</th>
+                                <th class="p-4 text-right">Profit Bersih</th>
+                                <th class="p-4 text-center">Struk</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm">
+                            <tr v-if="transactions.length === 0">
+                                <td colspan="7" class="p-8 text-center text-slate-400 italic">Belum ada transaksi recorded.</td>
+                            </tr>
+                            <tr v-for="tx in transactions.slice().reverse()" :key="tx.id" class="hover:bg-slate-50/80 transition">
+                                <td class="p-4 font-mono font-bold text-indigo-600 text-xs">{{ tx.invoiceNo }}</td>
+                                <td class="p-4 text-slate-600 text-xs">{{ formatDate(tx.date) }}</td>
+                                <td class="p-4 text-slate-800 max-w-xs">
+                                    <div class="text-xs font-medium" v-for="item in tx.items" :key="item.id">
+                                        &bull; {{ item.name }} (x{{ item.qty }})
+                                    </div>
+                                </td>
+                                <td class="p-4 text-right font-bold text-slate-900">{{ formatRp(tx.total) }}</td>
+                                <td class="p-4 text-right font-medium text-slate-500">{{ formatRp(tx.totalHpp) }}</td>
+                                <td class="p-4 text-right font-bold text-emerald-600">+{{ formatRp(tx.profit) }}</td>
+                                <td class="p-4 text-center">
+                                    <button @click="viewReceipt(tx)" class="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="Lihat Struk">
+                                        <i class="fa-solid fa-receipt"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== MODAL ADD/EDIT PRODUCT ==================== -->
+    <div v-if="showProductModal" class="no-print fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-lg text-slate-800">{{ editingProduct ? 'Edit Produk' : 'Tambah Produk Baru' }}</h3>
+                <button @click="showProductModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-3 text-sm">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Produk *</label>
+                    <input type="text" v-model="productForm.name" placeholder="Nama Produk" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">SKU / Kode (Opsional)</label>
+                        <input type="text" v-model="productForm.sku" placeholder="PRD-001" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kategori</label>
+                        <input type="text" v-model="productForm.category" placeholder="Makanan / Minuman" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Modal / HPP (Rp) *</label>
+                        <input type="number" v-model.number="productForm.costPrice" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Harga Jual (Rp) *</label>
+                        <input type="number" v-model.number="productForm.sellingPrice" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Jumlah Stok *</label>
+                    <input type="number" v-model.number="productForm.stock" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+            </div>
+
+            <div class="flex space-x-3 pt-3">
+                <button @click="showProductModal = false" class="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-50">Batal</button>
+                <button @click="saveProduct" class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 shadow-md">Simpan Produk</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== RECEIPT / STRUK MODAL ==================== -->
+    <div v-if="selectedReceipt" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4 font-mono text-xs text-slate-800">
+            <div class="text-center border-b border-dashed border-slate-300 pb-4">
+                <h3 class="font-bold text-base text-slate-900 font-sans">UsahaKu POS</h3>
+                <p class="text-[11px] text-slate-500 font-sans">Struk Pembayaran Resmi</p>
+                <div class="mt-2 text-[10px] text-slate-400">No: {{ selectedReceipt.invoiceNo }} &bull; {{ formatDate(selectedReceipt.date) }}</div>
+            </div>
+
+            <div class="space-y-2">
+                <div v-for="item in selectedReceipt.items" :key="item.id" class="flex justify-between">
+                    <div>
+                        <div>{{ item.name }}</div>
+                        <div class="text-[10px] text-slate-500">{{ formatRp(item.sellingPrice) }} x {{ item.qty }}</div>
+                    </div>
+                    <div class="font-bold">{{ formatRp(item.sellingPrice * item.qty) }}</div>
+                </div>
+            </div>
+
+            <div class="border-t border-dashed border-slate-300 pt-3 space-y-1">
+                <div class="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>{{ formatRp(selectedReceipt.subtotal || selectedReceipt.total) }}</span>
+                </div>
+                <div v-if="selectedReceipt.discount > 0" class="flex justify-between">
+                    <span>Diskon:</span>
+                    <span>-{{ formatRp(selectedReceipt.discount) }}</span>
+                </div>
+                <div class="flex justify-between text-sm font-bold pt-1 border-t border-slate-200 text-slate-900">
+                    <span>TOTAL:</span>
+                    <span>{{ formatRp(selectedReceipt.total) }}</span>
+                </div>
+                <div class="flex justify-between text-slate-500">
+                    <span>Bayar:</span>
+                    <span>{{ formatRp(selectedReceipt.paid) }}</span>
+                </div>
+                <div class="flex justify-between text-slate-500">
+                    <span>Kembali:</span>
+                    <span>{{ formatRp(selectedReceipt.change) }}</span>
+                </div>
+            </div>
+
+            <div class="text-center pt-2 text-[10px] text-slate-400 font-sans border-t border-slate-100">
+                Terima Kasih Telah Berbelanja!
+            </div>
+
+            <div class="flex space-x-2 pt-2 no-print font-sans">
+                <button @click="selectedReceipt = null" class="flex-1 py-2 rounded-xl border border-slate-300 font-semibold text-slate-700">Tutup</button>
+                <button @click="printReceipt" class="flex-1 py-2 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700"><i class="fa-solid fa-print mr-1"></i> Cetak</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VUE APPLICATION LOGIC WITH ANTI-CRASH PROTECTION -->
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    currentTab: 'dashboard',
+                    mobileMenuOpen: false,
+                    dashboardFilter: 'all',
+
+                    // Calculator State
+                    calc: {
+                        name: '',
+                        ingredients: [
+                            { id: 1, name: 'Tepung Terigu High Protein', qty: '1 kg', cost: 14000 },
+                            { id: 2, name: 'Gula Pasir', qty: '500 gr', cost: 8500 },
+                            { id: 3, name: 'Telur Ayam', qty: '4 butir', cost: 10000 },
+                            { id: 4, name: 'Mentega / Margarin', qty: '250 gr', cost: 12500 }
+                        ],
+                        yieldQty: 50,
+                        batchPackaging: 20000,
+                        batchOperational: 15000,
+                        mode: 'margin',
+                        targetPercent: 30,
+                        manualPrice: null
+                    },
+
+                    // Product Catalog State
+                    products: [],
+                    productSearch: '',
+                    productCategoryFilter: '',
+                    showProductModal: false,
+                    editingProduct: null,
+                    productForm: {
+                        name: '',
+                        sku: '',
+                        category: '',
+                        costPrice: 0,
+                        sellingPrice: 0,
+                        stock: 10
+                    },
+
+                    // POS State
+                    posSearch: '',
+                    posCategory: '',
+                    cart: [],
+                    cartDiscount: 0,
+                    cartPayment: 0,
+                    selectedReceipt: null,
+
+                    // Transactions State
+                    transactions: [],
+
+                    // Chart instances
+                    salesChart: null,
+                    productsChart: null
+                }
+            },
+
+            computed: {
+                // Total akumulasi modal dari semua baris bahan baku
+                totalMaterialCost() {
+                    if (!Array.isArray(this.calc.ingredients)) return 0;
+                    return this.calc.ingredients.reduce((sum, item) => sum + this.safeNum(item.cost, 0), 0);
+                },
+
+                // Defensive calculation logic preventing NaN or Division by Zero
+                calcResults() {
+                    const batchMat = this.totalMaterialCost;
+                    const batchPkg = Math.max(0, this.safeNum(this.calc.batchPackaging, 0));
+                    const batchOps = Math.max(0, this.safeNum(this.calc.batchOperational, 0));
+                    const yieldQty = Math.max(1, this.safeNum(this.calc.yieldQty, 1)); // Ensures yield is never 0
+
+                    const totalBatchCost = batchMat + batchPkg + batchOps;
+                    const hppPerUnit = totalBatchCost / yieldQty;
+
+                    let recPrice = 0;
+                    const rawPct = this.safeNum(this.calc.targetPercent, 30);
+                    const pct = Math.min(Math.max(1, rawPct), 95); // Clamped between 1% and 95%
+
+                    if (this.calc.mode === 'margin') {
+                        const marginDecimal = pct / 100;
+                        recPrice = marginDecimal < 1 ? hppPerUnit / (1 - marginDecimal) : hppPerUnit * 2;
+                    } else {
+                        recPrice = hppPerUnit * (1 + (pct / 100));
+                    }
+
+                    // Round up to nearest 500 IDR for market pricing
+                    let roundedPrice = Math.ceil(recPrice / 500) * 500;
+                    if (isNaN(roundedPrice) || !isFinite(roundedPrice)) roundedPrice = Math.ceil(hppPerUnit);
+
+                    const manualP = this.safeNum(this.calc.manualPrice, null);
+                    const finalPrice = (manualP !== null && manualP > 0) ? manualP : roundedPrice;
+
+                    const profitPerUnit = finalPrice - hppPerUnit;
+                    const effectiveMargin = finalPrice > 0 ? ((profitPerUnit / finalPrice) * 100).toFixed(1) : '0';
+                    const effectiveMarkup = hppPerUnit > 0 ? ((profitPerUnit / hppPerUnit) * 100).toFixed(1) : '0';
+
+                    return {
+                        totalBatchCost,
+                        hppPerUnit,
+                        recommendedPrice: roundedPrice,
+                        finalPrice,
+                        profitPerUnit,
+                        effectiveMargin,
+                        effectiveMarkup
+                    };
+                },
+
+                // Profit Projections (1 to 100 units) protected from NaN
+                profitProjections() {
+                    const currentYield = Math.max(1, this.safeNum(this.calc.yieldQty, 1));
+                    const steps = [1, 5, 10, 25, 50, 75, 100];
+                    if (!steps.includes(currentYield)) {
+                        steps.push(currentYield);
+                        steps.sort((a, b) => a - b);
+                    }
+                    return steps.map(qty => {
+                        const omset = qty * this.calcResults.finalPrice;
+                        const hpp = qty * this.calcResults.hppPerUnit;
+                        const profit = omset - hpp;
+                        const margin = omset > 0 ? ((profit / omset) * 100).toFixed(1) : '0';
+                        return { qty, omset, hpp, profit, margin };
+                    });
+                },
+
+                productCategories() {
+                    const cats = this.products.map(p => p.category).filter(c => c && c.trim() !== '');
+                    return [...new Set(cats)];
+                },
+
+                filteredProducts() {
+                    const query = (this.productSearch || '').toLowerCase();
+                    return this.products.filter(p => {
+                        const matchSearch = (p.name || '').toLowerCase().includes(query) || 
+                                           (p.sku && p.sku.toLowerCase().includes(query));
+                        const matchCat = !this.productCategoryFilter || p.category === this.productCategoryFilter;
+                        return matchSearch && matchCat;
+                    });
+                },
+
+                posProducts() {
+                    const query = (this.posSearch || '').toLowerCase();
+                    return this.products.filter(p => {
+                        const matchSearch = (p.name || '').toLowerCase().includes(query);
+                        const matchCat = !this.posCategory || p.category === this.posCategory;
+                        return matchSearch && matchCat;
+                    });
+                },
+
+                lowStockProducts() {
+                    return this.products.filter(p => p.stock <= 5);
+                },
+
+                cartSubtotal() {
+                    return this.cart.reduce((sum, item) => sum + (this.safeNum(item.sellingPrice) * this.safeNum(item.qty)), 0);
+                },
+
+                cartGrandTotal() {
+                    return Math.max(0, this.cartSubtotal - this.safeNum(this.cartDiscount, 0));
+                },
+
+                todaySales() {
+                    const todayStr = new Date().toDateString();
+                    return this.transactions
+                        .filter(t => new Date(t.date).toDateString() === todayStr)
+                        .reduce((sum, t) => sum + this.safeNum(t.total), 0);
+                },
+
+                todayProfit() {
+                    const todayStr = new Date().toDateString();
+                    return this.transactions
+                        .filter(t => new Date(t.date).toDateString() === todayStr)
+                        .reduce((sum, t) => sum + this.safeNum(t.profit), 0);
+                },
+
+                filteredTransactions() {
+                    const now = new Date();
+                    return this.transactions.filter(t => {
+                        const txDate = new Date(t.date);
+                        if (this.dashboardFilter === 'today') {
+                            return txDate.toDateString() === now.toDateString();
+                        } else if (this.dashboardFilter === '7days') {
+                            const diffDays = (now - txDate) / (1000 * 3600 * 24);
+                            return diffDays <= 7;
+                        } else if (this.dashboardFilter === '30days') {
+                            const diffDays = (now - txDate) / (1000 * 3600 * 24);
+                            return diffDays <= 30;
+                        }
+                        return true;
+                    });
+                },
+
+                filteredStats() {
+                    const txs = this.filteredTransactions;
+                    const totalSales = txs.reduce((sum, t) => sum + this.safeNum(t.total), 0);
+                    const totalHpp = txs.reduce((sum, t) => sum + this.safeNum(t.totalHpp), 0);
+                    const totalProfit = txs.reduce((sum, t) => sum + this.safeNum(t.profit), 0);
+                    const totalItemsSold = txs.reduce((sum, t) => sum + t.items.reduce((iSum, i) => iSum + this.safeNum(i.qty), 0), 0);
+                    const avgMargin = totalSales > 0 ? ((totalProfit / totalSales) * 100).toFixed(1) : '0';
+
+                    return {
+                        count: txs.length,
+                        totalSales,
+                        totalHpp,
+                        totalProfit,
+                        totalItemsSold,
+                        avgMargin
+                    };
+                },
+
+                topProductsData() {
+                    const map = {};
+                    this.filteredTransactions.forEach(tx => {
+                        if (Array.isArray(tx.items)) {
+                            tx.items.forEach(item => {
+                                if (!map[item.name]) map[item.name] = 0;
+                                map[item.name] += this.safeNum(item.qty, 1);
+                            });
+                        }
+                    });
+
+                    const labels = Object.keys(map);
+                    const values = Object.values(map);
+                    return { labels, values };
+                }
+            },
+
+            watch: {
+                products: {
+                    handler(newVal) {
+                        try {
+                            localStorage.setItem('usahaku_products', JSON.stringify(newVal));
+                        } catch (e) {
+                            console.warn("Storage write failed:", e);
+                        }
+                    },
+                    deep: true
+                },
+                transactions: {
+                    handler(newVal) {
+                        try {
+                            localStorage.setItem('usahaku_transactions', JSON.stringify(newVal));
+                        } catch (e) {
+                            console.warn("Storage write failed:", e);
+                        }
+                        this.renderCharts();
+                    },
+                    deep: true
+                },
+                currentTab(newTab) {
+                    if (newTab === 'dashboard') {
+                        this.$nextTick(() => this.renderCharts());
+                    }
+                },
+                dashboardFilter() {
+                    this.$nextTick(() => this.renderCharts());
+                }
+            },
+
+            mounted() {
+                this.loadInitialData();
+                this.$nextTick(() => {
+                    this.renderCharts();
+                });
+            },
+
+            methods: {
+                // Defensive Number Helper
+                safeNum(val, fallback = 0) {
+                    if (val === null || val === undefined || val === '') return fallback;
+                    const parsed = Number(val);
+                    return isNaN(parsed) || !isFinite(parsed) ? fallback : parsed;
+                },
+
+                navClass(tab) {
+                    return this.currentTab === tab 
+                        ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30' 
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800';
+                },
+
+                selectTabMobile(tab) {
+                    this.currentTab = tab;
+                    this.mobileMenuOpen = false;
+                },
+
+                formatRp(value) {
+                    const n = this.safeNum(value, 0);
+                    try {
+                        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+                    } catch (e) {
+                        return 'Rp ' + Math.round(n);
+                    }
+                },
+
+                formatDate(dateStr) {
+                    if (!dateStr) return '';
+                    try {
+                        const d = new Date(dateStr);
+                        return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    } catch (e) {
+                        return dateStr;
+                    }
+                },
+
+                getMarginPercent(product) {
+                    const price = this.safeNum(product.sellingPrice, 0);
+                    const cost = this.safeNum(product.costPrice, 0);
+                    if (price <= 0) return '0';
+                    const profit = price - cost;
+                    return ((profit / price) * 100).toFixed(1);
+                },
+
+                // Dynamic Ingredient Rows Management
+                addIngredient() {
+                    if (!Array.isArray(this.calc.ingredients)) {
+                        this.calc.ingredients = [];
+                    }
+                    this.calc.ingredients.push({
+                        id: Date.now() + Math.random(),
+                        name: '',
+                        qty: '',
+                        cost: 0
+                    });
+                },
+
+                removeIngredient(index) {
+                    if (Array.isArray(this.calc.ingredients)) {
+                        if (this.calc.ingredients.length > 1) {
+                            this.calc.ingredients.splice(index, 1);
+                        } else {
+                            this.calc.ingredients[0] = { id: Date.now(), name: '', qty: '', cost: 0 };
+                        }
+                    }
+                },
+
+                // Reset Calculator Form safely
+                resetCalc() {
+                    this.calc = {
+                        name: '',
+                        ingredients: [
+                            { id: Date.now() + 1, name: 'Bahan Utama', qty: '1 kg', cost: 10000 },
+                            { id: Date.now() + 2, name: 'Bahan Tambahan', qty: '1 pcs', cost: 5000 }
+                        ],
+                        yieldQty: 50,
+                        batchPackaging: 20000,
+                        batchOperational: 15000,
+                        mode: 'margin',
+                        targetPercent: 30,
+                        manualPrice: null
+                    };
+                },
+
+                // Save calculator item to catalog
+                saveCalculatorToCatalog() {
+                    const yieldVal = Math.max(1, this.safeNum(this.calc.yieldQty, 1));
+                    const name = (this.calc.name || '').trim() || `Produk Batch (${yieldVal} Pcs)`;
+                    const newProd = {
+                        id: 'PRD-' + Date.now(),
+                        name: name,
+                        sku: 'SKU-' + Math.floor(1000 + Math.random() * 9000),
+                        category: 'Hasil Batch',
+                        costPrice: Math.round(this.calcResults.hppPerUnit),
+                        sellingPrice: this.calcResults.finalPrice,
+                        stock: yieldVal
+                    };
+                    this.products.unshift(newProd);
+                    alert(`Produk "${name}" berhasil disimpan ke Katalog Produk dengan stok ${newProd.stock} unit!`);
+                    this.currentTab = 'products';
+                },
+
+                resetData() {
+                    if (confirm('Apakah Anda yakin ingin me-reset seluruh data kembali ke setelan awal demo?')) {
+                        try {
+                            localStorage.removeItem('usahaku_products');
+                            localStorage.removeItem('usahaku_transactions');
+                        } catch(e){}
+                        this.loadInitialData();
+                        alert('Data berhasil di-reset.');
+                    }
+                },
+
+                // Product Actions
+                openAddProductModal() {
+                    this.editingProduct = null;
+                    this.productForm = {
+                        name: '',
+                        sku: '',
+                        category: '',
+                        costPrice: 0,
+                        sellingPrice: 0,
+                        stock: 10
+                    };
+                    this.showProductModal = true;
+                },
+
+                openEditProductModal(p) {
+                    this.editingProduct = p;
+                    this.productForm = { ...p };
+                    this.showProductModal = true;
+                },
+
+                saveProduct() {
+                    if (!this.productForm.name || this.productForm.name.trim() === '') {
+                        alert('Nama produk wajib diisi!');
+                        return;
+                    }
+                    if (this.editingProduct) {
+                        const idx = this.products.findIndex(p => p.id === this.editingProduct.id);
+                        if (idx !== -1) {
+                            this.products[idx] = { ...this.productForm, id: this.editingProduct.id };
+                        }
+                    } else {
+                        const newProd = {
+                            ...this.productForm,
+                            id: 'PRD-' + Date.now()
+                        };
+                        this.products.unshift(newProd);
+                    }
+                    this.showProductModal = false;
+                },
+
+                deleteProduct(id) {
+                    if (confirm('Apakah Anda yakin ingin menghapus produk ini?')) {
+                        this.products = this.products.filter(p => p.id !== id);
+                    }
+                },
+
+                // POS Actions
+                addToCart(product) {
+                    if (product.stock <= 0) return;
+                    const existing = this.cart.find(item => item.id === product.id);
+                    if (existing) {
+                        if (existing.qty < product.stock) {
+                            existing.qty += 1;
+                        } else {
+                            alert('Stok produk tidak mencukupi!');
+                        }
+                    } else {
+                        this.cart.push({
+                            id: product.id,
+                            name: product.name,
+                            costPrice: product.costPrice,
+                            sellingPrice: product.sellingPrice,
+                            qty: 1
+                        });
+                    }
+                },
+
+                updateCartQty(item, delta) {
+                    const prod = this.products.find(p => p.id === item.id);
+                    const newQty = item.qty + delta;
+                    if (newQty <= 0) {
+                        this.cart = this.cart.filter(i => i.id !== item.id);
+                    } else if (prod && newQty <= prod.stock) {
+                        item.qty = newQty;
+                    } else {
+                        alert('Jumlah melebihi stok yang tersedia!');
+                    }
+                },
+
+                clearCart() {
+                    this.cart = [];
+                    this.cartDiscount = 0;
+                    this.cartPayment = 0;
+                },
+
+                checkout() {
+                    if (this.cart.length === 0) return;
+                    if (this.cartPayment < this.cartGrandTotal) {
+                        alert('Jumlah pembayaran kurang!');
+                        return;
+                    }
+
+                    // Deduct stock
+                    this.cart.forEach(item => {
+                        const prod = this.products.find(p => p.id === item.id);
+                        if (prod) {
+                            prod.stock = Math.max(0, prod.stock - item.qty);
+                        }
+                    });
+
+                    const totalHpp = this.cart.reduce((sum, i) => sum + (this.safeNum(i.costPrice) * i.qty), 0);
+                    const totalOmset = this.cartGrandTotal;
+                    const profit = totalOmset - totalHpp;
+
+                    const newTx = {
+                        id: 'TX-' + Date.now(),
+                        invoiceNo: 'INV/' + new Date().getFullYear() + '/' + Math.floor(100000 + Math.random() * 900000),
+                        date: new Date().toISOString(),
+                        items: [...this.cart],
+                        subtotal: this.cartSubtotal,
+                        discount: this.safeNum(this.cartDiscount, 0),
+                        total: totalOmset,
+                        totalHpp,
+                        profit,
+                        paid: this.cartPayment,
+                        change: this.cartPayment - totalOmset
+                    };
+
+                    this.transactions.push(newTx);
+                    this.selectedReceipt = newTx;
+                    this.clearCart();
+                },
+
+                viewReceipt(tx) {
+                    this.selectedReceipt = tx;
+                },
+
+                printReceipt() {
+                    window.print();
+                },
+
+                exportTransactionsCSV() {
+                    if (this.transactions.length === 0) {
+                        alert('Tidak ada data transaksi untuk di-export.');
+                        return;
+                    }
+                    let csv = 'No Invoice,Tanggal,Total Omset,Total HPP,Profit Bersih,Status\n';
+                    this.transactions.forEach(t => {
+                        csv += `"${t.invoiceNo}","${t.date}",${t.total},${t.totalHpp},${t.profit},"Lunas"\n`;
+                    });
+
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', `laporan_penjualan_${Date.now()}.csv`);
+                    a.click();
+                },
+
+                exportDataJSON() {
+                    const data = {
+                        products: this.products,
+                        transactions: this.transactions
+                    };
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', `backup_usahaku_${Date.now()}.json`);
+                    a.click();
+                },
+
+                // Safe Chart.js Initialization
+                renderCharts() {
+                    if (typeof Chart === 'undefined') return;
+
+                    try {
+                        // Line Chart
+                        const ctxSales = document.getElementById('salesChart');
+                        if (ctxSales) {
+                            if (this.salesChart) this.salesChart.destroy();
+
+                            const dateMap = {};
+                            this.filteredTransactions.forEach(t => {
+                                const dateKey = new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+                                if (!dateMap[dateKey]) dateMap[dateKey] = { sales: 0, profit: 0 };
+                                dateMap[dateKey].sales += this.safeNum(t.total);
+                                dateMap[dateKey].profit += this.safeNum(t.profit);
+                            });
+
+                            const labels = Object.keys(dateMap);
+                            const salesData = labels.map(k => dateMap[k].sales);
+                            const profitData = labels.map(k => dateMap[k].profit);
+
+                            this.salesChart = new Chart(ctxSales, {
+                                type: 'line',
+                                data: {
+                                    labels: labels.length ? labels : ['Belum Ada Data'],
+                                    datasets: [
+                                        {
+                                            label: 'Omset (Penjualan)',
+                                            data: salesData.length ? salesData : [0],
+                                            borderColor: '#4f46e5',
+                                            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                                            fill: true,
+                                            tension: 0.3
+                                        },
+                                        {
+                                            label: 'Keuntungan Bersih',
+                                            data: profitData.length ? profitData : [0],
+                                            borderColor: '#10b981',
+                                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                            fill: true,
+                                            tension: 0.3
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { position: 'bottom' } },
+                                    scales: {
+                                        y: {
+                                            ticks: {
+                                                callback: (val) => 'Rp ' + (val/1000) + 'k'
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                        // Doughnut Chart
+                        const ctxProd = document.getElementById('productsChart');
+                        if (ctxProd && this.topProductsData.labels.length > 0) {
+                            if (this.productsChart) this.productsChart.destroy();
+
+                            this.productsChart = new Chart(ctxProd, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: this.topProductsData.labels,
+                                    datasets: [{
+                                        data: this.topProductsData.values,
+                                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4']
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { position: 'bottom' } }
+                                }
+                            });
+                        }
+                    } catch (err) {
+                        console.warn("Error rendering chart:", err);
+                    }
+                },
+
+                loadInitialData() {
+                    let savedProducts = null;
+                    let savedTxs = null;
+                    try {
+                        savedProducts = localStorage.getItem('usahaku_products');
+                        savedTxs = localStorage.getItem('usahaku_transactions');
+                    } catch (e) {}
+
+                    if (savedProducts) {
+                        try {
+                            this.products = JSON.parse(savedProducts);
+                        } catch(e) { this.products = []; }
+                    } else {
+                        this.products = [
+                            { id: 'PRD-101', name: 'Kopi Susu Gula Aren 250ml', sku: 'KOP-01', category: 'Minuman', costPrice: 9000, sellingPrice: 18000, stock: 45 },
+                            { id: 'PRD-102', name: 'Roti Bakar Keju Cokelat', sku: 'RT-02', category: 'Makanan', costPrice: 8500, sellingPrice: 16000, stock: 15 },
+                            { id: 'PRD-103', name: 'Kaos Combed 30s Unisex', sku: 'TSH-03', category: 'Pakaian', costPrice: 35000, sellingPrice: 75000, stock: 4 },
+                            { id: 'PRD-104', name: 'Matcha Latte Ice', sku: 'MTC-04', category: 'Minuman', costPrice: 11000, sellingPrice: 22000, stock: 30 }
+                        ];
+                    }
+
+                    if (savedTxs) {
+                        try {
+                            this.transactions = JSON.parse(savedTxs);
+                        } catch(e) { this.transactions = []; }
+                    } else {
+                        const now = new Date();
+                        const yesterday = new Date(now.getTime() - (24 * 3600 * 1000));
+                        this.transactions = [
+                            {
+                                id: 'TX-001',
+                                invoiceNo: 'INV/2026/001',
+                                date: yesterday.toISOString(),
+                                items: [{ id: 'PRD-101', name: 'Kopi Susu Gula Aren 250ml', costPrice: 9000, sellingPrice: 18000, qty: 2 }],
+                                subtotal: 36000,
+                                discount: 0,
+                                total: 36000,
+                                totalHpp: 18000,
+                                profit: 18000,
+                                paid: 50000,
+                                change: 14000
+                            },
+                            {
+                                id: 'TX-002',
+                                invoiceNo: 'INV/2026/002',
+                                date: now.toISOString(),
+                                items: [
+                                    { id: 'PRD-102', name: 'Roti Bakar Keju Cokelat', costPrice: 8500, sellingPrice: 16000, qty: 1 },
+                                    { id: 'PRD-104', name: 'Matcha Latte Ice', costPrice: 11000, sellingPrice: 22000, qty: 1 }
+                                ],
+                                subtotal: 38000,
+                                discount: 2000,
+                                total: 36000,
+                                totalHpp: 19500,
+                                profit: 16500,
+                                paid: 50000,
+                                change: 14000
+                            }
+                        ];
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
